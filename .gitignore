@@ -1,0 +1,23 @@
+# MQL5 compiled binaries
+*.ex5
+*.ex4
+
+# NinjaTrader compiled output / packaged add-ons
+*.dll
+bin/
+obj/
+Custom/
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Logs
+*.log
