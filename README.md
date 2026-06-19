@@ -1,11 +1,16 @@
 # EDGAR Alert Trading Tools
 
 <p align="center">
-  <img src="https://edgaralert.com/images/telegram-edgaralert.jpg" alt="EDGAR Alert" width="250">
-</p>
+  <img src="https://edgaralert.com/images/telegram-edgaralert.jpg"
+       alt="EDGAR Alert"
+       width="10"
+       style="vertical-align:middle; margin-right:12px;" />
 
-<p align="center">
-  <strong>Free stock-market tools powered by SEC filings, Form 4 insider buying, insider trading activity, 8-K management changes, activist investor filings, and EDGAR Alert intelligence.</strong>
+  <strong>
+    Free stock-market tools powered by SEC filings, Form 4 insider buying,
+    insider trading activity, 8-K management changes, activist investor filings,
+    and EDGAR Alert intelligence.
+  </strong>
 </p>
 
 <p align="center">
