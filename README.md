@@ -1,7 +1,7 @@
 # EDGAR Alert Trading Tools
 
 <p align="center">
-  <img src="branding/logo.png" alt="EDGAR Alert" width="250">
+  <img src="https://edgaralert.com/images/telegram-edgaralert.jpg" alt="EDGAR Alert" width="250">
 </p>
 
 <p align="center">
