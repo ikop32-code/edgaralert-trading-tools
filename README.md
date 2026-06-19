@@ -3,7 +3,7 @@
 <p align="center">
   <img src="https://edgaralert.com/images/telegram-edgaralert.jpg"
        alt="EDGAR Alert"
-       width="10"
+       width="100"
        style="vertical-align:middle; margin-right:12px;" />
 
   <strong>
