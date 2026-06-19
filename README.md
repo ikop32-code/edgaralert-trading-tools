@@ -1,24 +1,106 @@
 # EDGAR Alert Trading Tools
 
-Free trading-platform plugins that connect to the
-[EDGAR Alert](https://www.edgaralert.com) API and surface SEC/insider
-activity signals directly inside trading platforms.
+<p align="center">
+  <img src="branding/logo.png" alt="EDGAR Alert" width="250">
+</p>
 
-These tools are **scanners and displays only**. None of them place
-trades, modify orders, or manage positions. EDGAR Alert is a SEC
-filing intelligence platform, not a brokerage or trading system — see
-[`docs/architecture.md`](docs/architecture.md) for the full reasoning.
+<p align="center">
+  <strong>Free stock-market tools powered by SEC filings, Form 4 insider buying, insider trading activity, 8-K management changes, activist investor filings, and EDGAR Alert intelligence.</strong>
+</p>
 
-## Status
+<p align="center">
+  <a href="https://edgaralert.com">Website</a> •
+  <a href="https://edgaralert.com/pricing">API Access</a> •
+  <a href="https://edgaralert.com/research-app">Research</a>
+</p>
 
-| Platform     | Status        | Folder                                  |
-|--------------|---------------|-------------------------------------------|
-| MetaTrader 5 | MVP available | [`mt5/EdgarAlertStockScanner`](mt5/EdgarAlertStockScanner) |
-| NinjaTrader  | Planned, not started | [`ninjatrader/EdgarAlertStockScanner`](ninjatrader/EdgarAlertStockScanner) |
+<p align="center">
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
+  <img src="https://img.shields.io/badge/MT5-Available-blue" alt="MT5">
+  <img src="https://img.shields.io/badge/NinjaTrader-Planned-orange" alt="NinjaTrader">
+  <img src="https://img.shields.io/badge/SEC-EDGAR-red" alt="SEC EDGAR">
+</p>
 
-## Folder structure
+---
 
-```
+## What Is EDGAR Alert?
+
+EDGAR Alert helps investors discover market-moving signals hidden inside SEC filings.
+
+Our platform analyzes:
+
+* Form 4 insider buying and insider selling
+* Executive and director transactions
+* Cluster buying activity
+* 8-K management changes
+* Activist investor filings (13D)
+* Institutional ownership disclosures
+* Corporate events and SEC filings
+* Insider trading trends
+* Proprietary insider activity scoring
+
+This repository contains free trading-platform plugins that connect to the EDGAR Alert API and display those signals directly inside trading software.
+
+---
+
+## Available Tools
+
+| Tool                      | Platform     | Status    |
+| ------------------------- | ------------ | --------- |
+| EDGAR Alert Stock Scanner | MetaTrader 5 | Available |
+| EDGAR Alert Stock Scanner | NinjaTrader  | Planned   |
+
+---
+
+## Why This Is Different
+
+Most trading indicators analyze:
+
+* Price action
+* Volume
+* Moving averages
+* Technical patterns
+
+EDGAR Alert focuses on:
+
+* SEC filings
+* Insider buying
+* Insider selling
+* Executive transactions
+* Management changes
+* Activist investors
+* Institutional ownership
+* Corporate events
+
+Our goal is to surface information that often appears before it becomes widely discussed by the market.
+
+---
+
+## Features
+
+### Current
+
+* Stock Scanner
+* Market Scanner
+* Form 4 Insider Buying Signals
+* Insider Trading Analytics
+* Cluster Buy Detection
+* SEC Filing Monitoring
+
+### Planned
+
+* 8-K Management Change Alerts
+* Activist Investor Tracking
+* Institutional Ownership Monitoring
+* Custom Watchlists
+* Real-Time Notifications
+* Multi-Platform Support
+
+---
+
+## Repository Structure
+
+```text
 edgaralert-trading-tools/
 ├── mt5/
 │   └── EdgarAlertStockScanner/
@@ -34,29 +116,56 @@ edgaralert-trading-tools/
 └── README.md
 ```
 
-## Getting started
+## Getting Started
 
-- **MT5 users:** go to
-  [`mt5/EdgarAlertStockScanner/README.md`](mt5/EdgarAlertStockScanner/README.md)
-  for install steps, or the condensed version at
-  [`docs/mt5-install.md`](docs/mt5-install.md).
-- **Contributors:** read [`docs/architecture.md`](docs/architecture.md)
-  first — it covers how this project fits into the public EDGAR Alert
-  API, why TradingView/Thinkorswim are out of scope for now, and why
-  the platforms are sequenced MT5 → NinjaTrader.
+### MetaTrader 5
+
+See:
+
+```text
+mt5/EdgarAlertStockScanner/README.md
+```
+
+for installation instructions and configuration.
+
+### NinjaTrader
+
+Coming soon.
+
+---
 
 ## Requirements
 
-All scanners in this repo require a free EDGAR Alert API key. Sign up
-at https://www.edgaralert.com.
+All tools in this repository require an EDGAR Alert account and API key.
+
+Create a free account:
+
+https://edgaralert.com
+
+---
+
+## Keywords
+
+SEC Filings • Form 4 • Insider Buying • Insider Trading • Stock Scanner • Market Scanner • SEC EDGAR • 8-K Monitoring • Management Change Detection • Activist Investor Tracking • Institutional Ownership • Financial Data • Stock Market Research • Algorithmic Trading • MT5 • NinjaTrader
+
+---
 
 ## Contributing
 
-Issues and pull requests are welcome. This repo is client-only — it
-contains no EDGAR Alert backend or proprietary signal-generation code,
-only plugins that call the public, documented API.
+Issues and pull requests are welcome.
+
+This repository contains client-side trading platform integrations only. Proprietary signal-generation logic and EDGAR Alert backend services are not included.
+
+---
 
 ## License
 
-[MIT](LICENSE) — free to use, modify, and redistribute. See
-[`LICENSE`](LICENSE) for the full text.
+MIT License
+
+See LICENSE for details.
+
+---
+
+Powered by EDGAR Alert
+
+https://edgaralert.com
