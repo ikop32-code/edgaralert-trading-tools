@@ -317,20 +317,40 @@ bool ParseSignals(const string &json, SignalRow &rows[], string &errorOut)
    for(int i = 0; i < objCount; i++)
    {
       SignalRow r;
-      r.ticker    = JsonGetString(objects[i], "Ticker",     JsonGetString(objects[i], "ticker", "-"));
-      r.score     = JsonGetNumberAsString(objects[i], "SignalScore", JsonGetNumberAsString(objects[i], "signalScore",
-                       JsonGetNumberAsString(objects[i], "score", "-")));
-      r.signal    = JsonGetString(objects[i], "Signal", JsonGetString(objects[i], "signal",
-                       ScoreToSignalLabel(r.score)));
-      r.eventType = JsonGetString(objects[i], "EventType", JsonGetString(objects[i], "eventType", "-"));
+
+      // NOTE on this whole block: MQL5 reference parameters (the
+      // "const string &key" / "const string &defaultVal" params on
+      // JsonGetString/JsonGetNumberAsString/ShortenDate) can only bind to
+      // an actual variable, never directly to the return value of another
+      // function call -- "parameter passed as reference, variable
+      // expected" is the compiler telling you exactly that. Every
+      // fallback chain below is written as a flat sequence of named
+      // variables for that reason: compute the innermost/deepest fallback
+      // first, store it, then use that variable (never the call
+      // expression itself) as the defaultVal one level up.
+
+      string tickerFallback = JsonGetString(objects[i], "ticker", "-");
+      r.ticker = JsonGetString(objects[i], "Ticker", tickerFallback);
+
+      string scoreFallback2 = JsonGetNumberAsString(objects[i], "score", "-");
+      string scoreFallback1 = JsonGetNumberAsString(objects[i], "signalScore", scoreFallback2);
+      r.score = JsonGetNumberAsString(objects[i], "SignalScore", scoreFallback1);
+
+      string signalFallback2 = ScoreToSignalLabel(r.score);
+      string signalFallback1 = JsonGetString(objects[i], "signal", signalFallback2);
+      r.signal = JsonGetString(objects[i], "Signal", signalFallback1);
+
+      string eventTypeFallback = JsonGetString(objects[i], "eventType", "-");
+      r.eventType = JsonGetString(objects[i], "EventType", eventTypeFallback);
 
       // clusterCount: the live API field is "clusterCount" (int), not
       // "Cluster"/"cluster" -- those keys never matched a real response
       // field, so this column always fell back to "-". See
       // AlertEventDto.ClusterCount in the V1 API repo. JsonGetNumberAsString
       // is fine here, same as the score fields above.
-      r.cluster   = JsonGetNumberAsString(objects[i], "clusterCount",
-                       JsonGetString(objects[i], "Cluster", JsonGetString(objects[i], "cluster", "-")));
+      string clusterFallback2 = JsonGetString(objects[i], "cluster", "-");
+      string clusterFallback1 = JsonGetString(objects[i], "Cluster", clusterFallback2);
+      r.cluster = JsonGetNumberAsString(objects[i], "clusterCount", clusterFallback1);
 
       // side: NOT a top-level field on the live API. It only exists nested
       // at details.side (added alongside the typed "details" object that
@@ -348,7 +368,10 @@ bool ParseSignals(const string &json, SignalRow &rows[], string &errorOut)
       // key name that never exists) -- replaced both with the one that
       // actually works.
       string side = JsonGetString(objects[i], "side", "");
-      string eventDate = ShortenDate(JsonGetString(objects[i], "EventDate", JsonGetString(objects[i], "eventDate", "-")));
+
+      string eventDateFallback = JsonGetString(objects[i], "eventDate", "-");
+      string eventDateRaw = JsonGetString(objects[i], "EventDate", eventDateFallback);
+      string eventDate = ShortenDate(eventDateRaw);
 
       // lastBuyDate/lastBuyValue/lastSellDate: the live API fields are
       // camelCase lastBuyDate / lastBuyValue / lastSellDate (see
@@ -359,14 +382,19 @@ bool ParseSignals(const string &json, SignalRow &rows[], string &errorOut)
       // inference from side+eventDate below. Old keys kept as a deeper
       // fallback in case an older API version ever sends the short names,
       // but the real field names are tried first now.
-      string explicitLastBuy  = JsonGetString(objects[i], "lastBuyDate",
-                                    JsonGetString(objects[i], "LastBuy", JsonGetString(objects[i], "lastBuy", "")));
-      explicitLastBuy = ShortenDate(explicitLastBuy);
-      string explicitLastSell = JsonGetString(objects[i], "lastSellDate",
-                                    JsonGetString(objects[i], "LastSell", JsonGetString(objects[i], "lastSell", "")));
-      explicitLastSell = ShortenDate(explicitLastSell);
-      r.buyValue  = JsonGetNumberAsString(objects[i], "lastBuyValue",
-                       JsonGetString(objects[i], "BuyValue", JsonGetString(objects[i], "buyValue", "-")));
+      string lastBuyFallback2 = JsonGetString(objects[i], "lastBuy", "");
+      string lastBuyFallback1 = JsonGetString(objects[i], "LastBuy", lastBuyFallback2);
+      string lastBuyRaw = JsonGetString(objects[i], "lastBuyDate", lastBuyFallback1);
+      string explicitLastBuy = ShortenDate(lastBuyRaw);
+
+      string lastSellFallback2 = JsonGetString(objects[i], "lastSell", "");
+      string lastSellFallback1 = JsonGetString(objects[i], "LastSell", lastSellFallback2);
+      string lastSellRaw = JsonGetString(objects[i], "lastSellDate", lastSellFallback1);
+      string explicitLastSell = ShortenDate(lastSellRaw);
+
+      string buyValueFallback2 = JsonGetString(objects[i], "buyValue", "-");
+      string buyValueFallback1 = JsonGetString(objects[i], "BuyValue", buyValueFallback2);
+      r.buyValue = JsonGetNumberAsString(objects[i], "lastBuyValue", buyValueFallback1);
 
       if(StringLen(explicitLastBuy) > 0 && explicitLastBuy != "-")
          r.lastBuy = explicitLastBuy;
