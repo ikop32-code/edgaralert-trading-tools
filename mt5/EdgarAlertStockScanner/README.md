@@ -1,13 +1,16 @@
 # EDGAR Alert Stock Scanner — MetaTrader 5
 
-A **free** MT5 chart indicator that pulls the latest SEC insider-activity
+A **free** MT5 Expert Advisor that pulls the latest SEC insider-activity
 signals from the [EDGAR Alert](https://www.edgaralert.com) API and shows
 them in a simple on-chart table.
 
 This is a **scanner / display tool only**.
 It does **not** place trades, modify orders, or touch your account in
 any way. It only reads data from the EDGAR Alert API and draws labels
-on your chart.
+on your chart. It's built and attached as an **Expert Advisor (EA)**,
+not a custom indicator — that's a platform requirement, not a design
+choice: MQL5's `WebRequest()` can only be called from an EA or a
+script, never from an indicator (MT5 returns error 4014 if you try).
 
 ---
 
@@ -24,20 +27,20 @@ on your chart.
 1. Open MetaTrader 5.
 2. Go to **File → Open Data Folder**. This opens a Windows Explorer
    window.
-3. Navigate to `MQL5 → Indicators`.
+3. Navigate to `MQL5 → Experts`.
 4. Copy `EdgarAlertStockScanner.mq5` into that folder.
 5. Back in MetaTrader 5, open the **Navigator** panel (Ctrl+N) if it's
    not already visible.
-6. Right-click **Indicators** in the Navigator and choose
+6. Right-click **Expert Advisors** in the Navigator and choose
    **Refresh** (or restart MT5).
 7. You should now see `EdgarAlertStockScanner` listed under
-   **Indicators → Custom**.
+   **Expert Advisors**.
 
 ---
 
 ## Required: allow WebRequest for the EDGAR Alert API
 
-MT5 blocks all outbound web requests from indicators/EAs by default.
+MT5 blocks all outbound web requests from Expert Advisors by default.
 You must explicitly allow the EDGAR Alert API domain, or the scanner
 will show:
 
@@ -47,21 +50,23 @@ To allow it:
 
 1. In MetaTrader 5, go to **Tools → Options**.
 2. Click the **Expert Advisors** tab.
-3. Check **Allow WebRequest for listed URL:**.
-4. Click **Add** (or click into the empty text box) and enter:
+3. Check **Allow algorithmic trading** (required for any EA, including
+   this one, even though it never trades).
+4. Check **Allow WebRequest for listed URL:**.
+5. Click **Add** (or click into the empty text box) and enter:
 
    ```
    https://api.edgaralert.com
    ```
 
-5. Click **OK**.
+6. Click **OK**.
 
 If you changed the `ApiBaseUrl` input from the default, allow that
 exact URL instead.
 
-> **Note:** This setting lives in MT5 itself, not in the indicator.
-> If you reinstall MT5 or use a different terminal/profile, you'll
-> need to repeat this step.
+> **Note:** This setting lives in MT5 itself, not in the EA. If you
+> reinstall MT5 or use a different terminal/profile, you'll need to
+> repeat this step.
 
 ---
 
@@ -69,7 +74,8 @@ exact URL instead.
 
 1. Open any chart (the scanner is not tied to a specific symbol — it
    shows signals across tickers, not just the current chart's symbol).
-2. In the Navigator, drag **EdgarAlertStockScanner** onto the chart.
+2. In the Navigator, drag **EdgarAlertStockScanner** from
+   **Expert Advisors** onto the chart.
 3. In the settings dialog that appears, go to the **Inputs** tab and
    fill in:
 
@@ -80,7 +86,10 @@ exact URL instead.
    | `RefreshSeconds`  | How often to re-fetch signals, in seconds      | `900` (15 minutes)          |
    | `MaxRows`         | Max number of signal rows to display (1–50)    | `10`                        |
 
-4. Click **OK**. The scanner table should appear in the top-left
+4. Make sure the **Algo Trading** button in the MT5 toolbar is enabled
+   (green) — MT5 requires this for any Expert Advisor to run, even one
+   that, like this one, never places a trade.
+5. Click **OK**. The scanner table should appear in the top-left
    corner of the chart and refresh automatically.
 
 ---
@@ -115,11 +124,12 @@ read-through), so the MVP intentionally doesn't dedicate a column to
 sizing them. Insider buys are the cleaner signal and get the full
 treatment (date *and* dollar value).
 
-> Some columns (Last Buy, Buy Value, Last Sell, Cluster) depend on
-> fields the API may not return on every plan or in every version
-> yet. If a field isn't present, the scanner shows `-` for that cell
-> instead of breaking. See `docs/architecture.md` in this project for
-> the plan to add these fields directly to the API response.
+> Last Buy, Buy Value, Last Sell, and Cluster come from rollup fields
+> the API computes per ticker (`lastBuyDate`, `lastBuyValue`,
+> `lastSellDate`, `clusterCount`) — confirmed live and read correctly
+> by the scanner. If a ticker has no buy or sell history at all, the
+> corresponding field is `null` on the API response and the scanner
+> shows `-` for that cell rather than a fabricated value.
 
 ---
 
@@ -136,8 +146,8 @@ treatment (date *and* dollar value).
 
 ## Removing the scanner
 
-Right-click the chart → **Indicators List** → select
-**EdgarAlertStockScanner** → **Delete**.
+Right-click the chart → **Expert list** → select
+**EdgarAlertStockScanner** → **Remove**.
 
 ---
 
