@@ -68,44 +68,62 @@ by `GET /api/v1/alerts/latest` (see the full reference at
 
 | Field | Used for |
 |---|---|
-| `ticker` | Ticker column |
-| `signalScore` | Score column, and to compute the Signal label if one isn't provided |
-| `eventType` | Event column |
-| `eventDate` | Date used to populate Last Buy / Last Sell (see below) |
-| `details.side` | Whether this event was a BUY or a SELL. Nested under `details` (not a top-level field) — added alongside the typed `details` object that replaced raw `messageJson` parsing. |
-| `clusterCount` | Cluster column |
-| `lastBuyDate`, `lastBuyValue`, `lastSellDate` | Last Buy / Buy Value / Last Sell columns, see below |
+| `ticker` | Ticker, shown once per card (not repeated inside the headline — see `summary.title` below) |
+| `signalScore` | Score, and to compute the Signal label if one isn't provided |
+| `eventType` | Falls back to a humanized headline if `summary` is absent on a row |
+| `eventDate` | This alert's own date, shown in the card's detail line |
+| `details.side`, `details.transactionValue` | This alert's own side (BUY/SELL) and dollar value — distinct from the ticker-wide rollup fields below, see "A note on..." |
+| `clusterCount` | Parsed, currently unused in the card layout (kept on the row struct for a future enhancement) |
+| `lastBuyDate`, `lastBuyValue`, `lastSellDate` | Parsed and used for sort priority (`RowRank`), currently not displayed directly on the card |
+| `summary.title`, `summary.subtitle`, `summary.badges`, `summary.scoreBucket` | The card headline (ticker suffix stripped) and badge pills — see `AlertSummaryDto` in the V1 API repo. Falls back to a humanized `eventType` if `summary` is absent (older API response, or an alert type `AlertSummaryBuilder` doesn't cover yet). |
 
-`lastBuyDate`, `lastBuyValue`, `lastSellDate`, and `clusterCount` are
-confirmed live on the current API — added specifically for
-trading-platform scanners like this one (per-ticker rollups, so a
-single row can report a ticker's most recent buy and sell even though
-the row itself only represents one event). The scanner is still
-written defensively: any field that's missing or `null` on a given
-row (a ticker with no buy history, for example) renders as `-` in the
-table rather than breaking the plugin. If you're consuming this same
-endpoint and want the authoritative, current field list, always check
-the live API docs rather than this repo — the docs are the source of
-truth, this repo just consumes them.
+`lastBuyDate`, `lastBuyValue`, `lastSellDate`, `clusterCount`,
+`details`, and `summary` are all confirmed live on the current API.
+The scanner is still written defensively: any field that's missing or
+`null` on a given row renders as `-` (or an empty badge list) rather
+than breaking the EA. If you're consuming this same endpoint and want
+the authoritative, current field list, always check the live API docs
+rather than this repo — the docs are the source of truth, this repo
+just consumes them.
 
-### A note on "Last Buy" vs. "Last Sell"
+### Filtering by ticker: the `scope` query parameter
+
+There's no dedicated "list of tickers" request parameter on
+`GET /api/v1/alerts/latest`. Ticker filtering works through the
+existing `scope` parameter instead: `scope=watchlist` restricts
+results to the account's **default watchlist**, which is configured
+on the EDGAR Alert website (Dashboard → Watchlist → set as default),
+not via this EA. The scanner's `Scope` input
+(`SCOPE_UNIVERSE` / `SCOPE_WATCHLIST`) is a thin wrapper around that
+same query parameter — see `BuildUrl()` in
+`EdgarAlertStockScanner.mq5`.
+
+One real footgun this surfaces: per the API's own
+`WatchlistPredicate` logic (`AlertRepository.cs` in the V1 API repo),
+`scope=watchlist` with no default watchlist configured matches
+**nothing**, not everything. The scanner distinguishes this case in
+its status message (`"check your default watchlist is set..."`)
+rather than letting a misconfigured watchlist look identical to "no
+recent signals".
+
+### A note on "Last Buy" vs. "Last Sell" vs. this alert's own side
 
 The `/alerts/latest` feed returns one row per detected event, each
-tagged with a `side` (BUY or SELL) — it is not pre-aggregated per
-ticker on its own. The API now also returns `lastBuyDate`,
-`lastBuyValue`, and `lastSellDate` directly on every row — true
-per-ticker rollups computed server-side — and the scanner prefers
-those whenever present. The per-row `side` + `eventDate` inference
-described below only kicks in as a fallback when a rollup field is
-genuinely absent (e.g. a ticker with no sell history at all has a
-`null` `lastSellDate`, which is a different case from the rollup
-being unavailable).
+tagged with its own `details.side` (BUY or SELL) and
+`details.transactionValue` — what *this specific alert* is. Separately,
+the API also returns `lastBuyDate`/`lastBuyValue`/`lastSellDate`
+directly on every row: true **per-ticker rollups** computed
+server-side, answering a different question ("what's this ticker's
+broader recent history", which may be a different event than the one
+this row represents).
 
-When the fallback does apply: the scanner reads that row's own
-`details.side` and `eventDate` and populates whichever of Last Buy /
-Last Sell matches that row, leaving the other blank for that row —
-see the field fallback chain in `EdgarAlertStockScanner.mq5`'s JSON
-parser.
+The card's detail line ("Buy $1.2M · 2026-03-06") always uses the
+per-alert `details.side`/`details.transactionValue`/`eventDate` —
+never the rollup fields — since the card is describing what this one
+alert is, not the ticker's broader pattern. The rollup fields are
+still parsed and used for sort priority (bullish-first ordering
+favors tickers with recent buy activity), just not displayed directly
+on the card today.
 
 ### Sort order: bullish-first
 
@@ -199,9 +217,15 @@ not a new integration design**:
    additional documented fields exist by the time this is built —
    always check the current API docs).
 3. Same user inputs: `ApiKey`, `ApiBaseUrl`, `RefreshSeconds`,
-   `MaxRows`.
-4. Same columns, same bullish-first sort order: Ticker, Score, Signal,
-   Last Buy, Buy Value, Last Sell, Cluster, Event.
+   `MaxRows`, `Scope`.
+4. Same card layout and bullish-first sort order: ticker/score/signal
+   on line one with the alert's headline (from `summary.title`), this
+   alert's own side/value/date with badge tags on line two. See "Reading
+   a card" in `mt5/EdgarAlertStockScanner/README.md` for the exact
+   shape. (This replaced an earlier 8-column grid layout — keep the
+   NinjaTrader version aligned with whatever the MT5 version's current
+   layout is at the time of the port, not necessarily this exact
+   wording.)
 5. Same constraint: scanner/display only, never order placement. This
    is a hard rule for this repo, not just an MVP shortcut — EDGAR
    Alert is a research/signal platform, not a trading or brokerage

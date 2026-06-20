@@ -25,8 +25,9 @@ indicator, so it has to be installed and attached as one.
    - `ApiBaseUrl` = `https://api.edgaralert.com` (default)
    - `RefreshSeconds` = `900` (default, 15 min)
    - `MaxRows` = `10` (default)
+   - `Scope` = `All tickers (no filter)` (default), or `Only my watchlist tickers` to restrict to a watchlist you've set as default at edgaralert.com
 7. Make sure the **Algo Trading** toolbar button is green/enabled.
-8. Click **OK** — the signal table should appear top-left on the
+8. Click **OK** — the signal panel should appear top-left on the
    chart.
 
 ## Common issues
@@ -39,7 +40,8 @@ indicator, so it has to be installed and attached as one.
 | "Enable WebRequest for https://api.edgaralert.com in MT5 settings"| Repeat step 4 above. Must match `ApiBaseUrl` exactly, including `https://`. |
 | "API error: invalid or unauthorized API key"                     | Double-check the key was copied correctly, no extra spaces.          |
 | "No signals returned"                                              | Working correctly — there are simply no recent signals to show.      |
-| Table doesn't update                                                | Check `RefreshSeconds`; the first load is immediate, later ones follow that interval. |
+| "No signals (check your default watchlist is set...)"              | `Scope` is set to watchlist mode but no default watchlist is configured on edgaralert.com yet — the API returns zero rows in that case, not everything. Set a default watchlist on the website, or switch `Scope` back to "All tickers". |
+| Panel doesn't update                                                | Check `RefreshSeconds`; the first load is immediate, later ones follow that interval. |
 
-For the full table-column reference, status-message list, and
+For the full card-layout reference, status-message list, and
 disclaimer, see the platform README linked above.
