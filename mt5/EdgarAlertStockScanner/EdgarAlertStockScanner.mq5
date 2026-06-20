@@ -592,16 +592,6 @@ string JsonGetNumberAsString(const string &obj, const string &key, const string 
    return raw;
 }
 
-//+------------------------------------------------------------------+
-//| Helper: single ushort char -> string                             |
-//+------------------------------------------------------------------+
-string ShortToString(ushort c)
-{
-   ushort arr[1];
-   arr[0] = c;
-   return ShortArrayToString(arr, 0, 1);
-}
-
 bool IsJsonWhitespace(ushort c)
 {
    return (c == ' ' || c == '\t' || c == '\r' || c == '\n');
