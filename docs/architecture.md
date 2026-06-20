@@ -31,6 +31,35 @@ Concretely, the MT5 scanner is a **read-only API consumer**:
   trading, order-placement, or account-modifying code of any kind —
   scanner/display only.
 
+### Why this ships as an Expert Advisor, not a custom indicator
+
+This is a hard MQL5 platform requirement, not a design preference.
+`WebRequest()` — the only way to call an external REST API from MQL5
+— can only be called from an Expert Advisor or a script. Calling it
+from a custom indicator's `OnCalculate()` thread always fails with
+error 4014 ("Function is not allowed for call"), regardless of
+whether the URL is correctly allowlisted in
+Tools → Options → Expert Advisors. See
+[mql5.com/en/docs/network/webrequest](https://www.mql5.com/en/docs/network/webrequest).
+
+The original MVP release was compiled with `#property
+indicator_chart_window`, making it a custom indicator that called
+`WebRequest()` — it would never have worked for anyone who actually
+attached it to a chart. Fixed by converting to a proper EA: no
+`indicator_*` properties, no `OnCalculate`, all logic driven by
+`OnInit`/`OnTimer` like any EA without per-tick trading logic (an EA
+does not require an `OnTick` handler — see
+[MQL5's own docs on the Tick event](https://www.mql5.com/en/docs/basis/function/events),
+which states explicitly that EAs can run entirely on `OnTimer`,
+`OnBookEvent`, and `OnChartEvent` instead).
+
+Practical implication: install this into `MQL5 → Experts` (not
+`MQL5 → Indicators`), attach it the same way you'd attach any other
+EA, and make sure **Allow algorithmic trading** is checked and the
+**Algo Trading** toolbar button is enabled — both are required for
+any EA to run at all, even one like this that never places a trade.
+See `docs/mt5-install.md` for the full setup checklist.
+
 ### Response fields this scanner depends on
 
 The scanner reads the following fields from the JSON array returned
@@ -110,11 +139,12 @@ EDGAR Alert, since this may have changed since this doc was written.
 
 - **TradingView**: Pine Script has no general-purpose outbound HTTP
   capability for arbitrary REST APIs from indicators/strategies, the
-  way MQL5's `WebRequest` or NinjaScript's `HttpClient` do. Pulling
-  data from an external authenticated API like EDGAR Alert isn't a
-  supported pattern for a standard Pine Script indicator without a
-  separate relay/webhook service — disproportionate effort for a free
-  MVP tool.
+  way MQL5's `WebRequest` (called from an Expert Advisor or script —
+  it's blocked from indicators too, see Section 1) or NinjaScript's
+  `HttpClient` do. Pulling data from an external authenticated API
+  like EDGAR Alert isn't a supported pattern for a standard Pine
+  Script indicator without a separate relay/webhook service —
+  disproportionate effort for a free MVP tool.
 - **Thinkorswim (thinkScript)**: similarly, thinkScript doesn't
   support arbitrary outbound HTTP calls to third-party REST APIs from
   custom studies, so there's no first-class way to call a

@@ -3,11 +3,25 @@
 //|                                          Powered by EDGARAlert.com|
 //+------------------------------------------------------------------+
 //|
-//| EDGAR Alert Stock Scanner (MT5)
+//| EDGAR Alert Stock Scanner (MT5 Expert Advisor)
 //|
 //| FREE scanner / display tool. Pulls the latest insider-activity
 //| signals from the EDGAR Alert API and shows them in a simple
 //| on-chart table.
+//|
+//| This is an Expert Advisor, not a custom indicator -- that's a
+//| hard requirement, not a style choice. WebRequest() can only be
+//| called from an EA or a script in MQL5; calling it from an
+//| indicator's OnCalculate() thread always fails with error 4014
+//| ("Function is not allowed for call"), even with the URL correctly
+//| allowlisted in Tools -> Options -> Expert Advisors. See
+//| mql5.com/en/docs/network/webrequest. This file was originally
+//| compiled as an indicator (#property indicator_chart_window) with
+//| WebRequest already in it, which would never have worked for
+//| anyone who actually attached it to a chart -- fixed by converting
+//| to a proper EA: no indicator_* properties, no OnCalculate, polling
+//| happens on a timer via OnInit/OnTimer like any other EA without
+//| per-tick trading logic.
 //|
 //| This EA does NOT place trades, modify orders, or touch the
 //| account in any way. It only reads data and draws labels.
@@ -21,14 +35,15 @@
 //|   2. Allow WebRequest for your ApiBaseUrl in
 //|      MT5 -> Tools -> Options -> Expert Advisors
 //|      (see README.md for exact steps)
+//|   3. Attach this to a chart the same way you'd attach any EA
+//|      (drag from Navigator -> Expert Advisors, not from
+//|      Navigator -> Indicators -> Custom)
 //|
 //+------------------------------------------------------------------+
 #property copyright "EDGARAlert.com"
 #property link      "https://www.edgaralert.com"
 #property version   "1.00"
 #property strict
-#property indicator_chart_window
-#property indicator_plots 0
 
 //--- Inputs -----------------------------------------------------------
 input string   ApiKey         = "";                              // EDGAR Alert API key (required)
@@ -85,8 +100,6 @@ struct SignalRow
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   IndicatorSetString(INDICATOR_SHORTNAME, "EdgarAlertStockScanner");
-
    ChartSetInteger(0, CHART_EVENT_OBJECT_CREATE, false);
    ChartSetInteger(0, CHART_EVENT_OBJECT_DELETE, false);
 
@@ -134,23 +147,6 @@ void OnTimer()
       return;
    }
    RefreshSignals();
-}
-
-//+------------------------------------------------------------------+
-//| Custom indicator iteration function (required, unused)           |
-//+------------------------------------------------------------------+
-int OnCalculate(const int rates_total,
-                 const int prev_calculated,
-                 const datetime &time[],
-                 const double &open[],
-                 const double &high[],
-                 const double &low[],
-                 const double &close[],
-                 const long &tick_volume[],
-                 const long &volume[],
-                 const int &spread[])
-{
-   return(rates_total);
 }
 
 //+------------------------------------------------------------------+
