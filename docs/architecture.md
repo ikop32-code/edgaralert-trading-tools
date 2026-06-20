@@ -43,29 +43,40 @@ by `GET /api/v1/alerts/latest` (see the full reference at
 | `signalScore` | Score column, and to compute the Signal label if one isn't provided |
 | `eventType` | Event column |
 | `eventDate` | Date used to populate Last Buy / Last Sell (see below) |
-| `side` | Whether this event was a BUY or a SELL |
+| `details.side` | Whether this event was a BUY or a SELL. Nested under `details` (not a top-level field) — added alongside the typed `details` object that replaced raw `messageJson` parsing. |
+| `clusterCount` | Cluster column |
+| `lastBuyDate`, `lastBuyValue`, `lastSellDate` | Last Buy / Buy Value / Last Sell columns, see below |
 
-Four additional fields — `lastBuyDate`, `lastBuyValue`,
-`lastSellDate`, and `clusterCount` — are part of the documented
-contract but may not be populated on every account/plan or in every
-API version. The scanner is written defensively: any field that's
-missing renders as `-` in the table rather than breaking the plugin.
-If you're consuming this same endpoint and want the authoritative,
-current field list, always check the live API docs rather than this
-repo — the docs are the source of truth, this repo just consumes them.
+`lastBuyDate`, `lastBuyValue`, `lastSellDate`, and `clusterCount` are
+confirmed live on the current API — added specifically for
+trading-platform scanners like this one (per-ticker rollups, so a
+single row can report a ticker's most recent buy and sell even though
+the row itself only represents one event). The scanner is still
+written defensively: any field that's missing or `null` on a given
+row (a ticker with no buy history, for example) renders as `-` in the
+table rather than breaking the plugin. If you're consuming this same
+endpoint and want the authoritative, current field list, always check
+the live API docs rather than this repo — the docs are the source of
+truth, this repo just consumes them.
 
 ### A note on "Last Buy" vs. "Last Sell"
 
 The `/alerts/latest` feed returns one row per detected event, each
 tagged with a `side` (BUY or SELL) — it is not pre-aggregated per
-ticker. So a single SELL-type row doesn't inherently carry that
-ticker's most recent BUY information, and vice versa. The scanner
-handles this by reading each row's own `side` and `eventDate` and
-populating whichever of Last Buy / Last Sell matches that row,
-leaving the other blank for that row. If the API later returns
-`lastBuyDate`/`lastSellDate` directly (a true per-ticker rollup), the
-scanner prefers those values automatically — see the field fallback
-chain in `EdgarAlertStockScanner.mq5`'s JSON parser.
+ticker on its own. The API now also returns `lastBuyDate`,
+`lastBuyValue`, and `lastSellDate` directly on every row — true
+per-ticker rollups computed server-side — and the scanner prefers
+those whenever present. The per-row `side` + `eventDate` inference
+described below only kicks in as a fallback when a rollup field is
+genuinely absent (e.g. a ticker with no sell history at all has a
+`null` `lastSellDate`, which is a different case from the rollup
+being unavailable).
+
+When the fallback does apply: the scanner reads that row's own
+`details.side` and `eventDate` and populates whichever of Last Buy /
+Last Sell matches that row, leaving the other blank for that row —
+see the field fallback chain in `EdgarAlertStockScanner.mq5`'s JSON
+parser.
 
 ### Sort order: bullish-first
 
