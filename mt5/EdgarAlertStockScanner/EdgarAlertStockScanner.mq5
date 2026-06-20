@@ -65,13 +65,35 @@ input int      MaxRows        = 10;                               // Max rows to
 #define FONT_SIZE_TITLE  11
 #define FONT_SIZE_STATUS 9
 
-// Column x-offsets (relative to PANEL_X), tuned for Consolas at FONT_SIZE_ROW
-// Order matches the MVP column set: Ticker, Score, Signal, Last Buy, Buy Value,
-// Last Sell, Cluster, Event. Sell Value is intentionally omitted for the MVP --
-// insider buys are the clean signal; sells are noisy (tax planning, RSU vesting,
-// 10b5-1 plans, diversification), so we show *that* a sell happened without
-// dedicating a column to its size.
-int ColX[COL_COUNT] = {0, 60, 115, 185, 260, 335, 405, 465};
+// Panel backing rectangle, so the table is readable over candles instead
+// of floating directly on the chart with no backing. PANEL_WIDTH is sized
+// to clear the widest possible row: PANEL_X (left margin) + table width
+// (523px, see ColX below) + a right margin roughly matching PANEL_X.
+#define PANEL_WIDTH      550
+#define PANEL_BG_COLOR   C'10,10,10'      // near-black, distinct from pure chart black
+#define PANEL_BORDER_COLOR clrDimGray
+
+// Column x-offsets (relative to PANEL_X), tuned for Consolas at
+// FONT_SIZE_ROW (9px monospace, ~5.4px/char). Order matches the MVP
+// column set: Ticker, Score, Signal, Last Buy, Buy Value, Last Sell,
+// Cluster, Event. Sell Value is intentionally omitted for the MVP --
+// insider buys are the clean signal; sells are noisy (tax planning, RSU
+// vesting, 10b5-1 plans, diversification), so we show *that* a sell
+// happened without dedicating a column to its size.
+//
+// Each offset leaves room for the wider of (a) its own header text or
+// (b) its real worst-case data, plus a minimum 10px gap to the next
+// column. Two real overlaps fixed here vs. the original spacing:
+//   - Buy Value previously assumed a short/placeholder value; the live
+//     API returns lastBuyValue as a raw DECIMAL(24,6) like
+//     "234789.120000" (13+ chars) before formatting. FormatCompactValue
+//     (see below) now collapses that to "$235K"/"$1.2M" (max 7 chars),
+//     and this column's width is sized for that formatted output, not
+//     the raw value.
+//   - Event previously had no room for the longest real eventType,
+//     MGMT_DIRECTOR_APPOINTED (24 chars) -- widened to fit without
+//     wrapping or running off the panel.
+int ColX[COL_COUNT] = {0, 42, 79, 148, 212, 271, 335, 383};
 string ColHeader[COL_COUNT] = {"Ticker","Score","Signal","Last Buy","Buy Value","Last Sell","Cluster","Event"};
 
 //--- State ---------------------------------------------------------------
@@ -390,7 +412,14 @@ bool ParseSignals(const string &json, SignalRow &rows[], string &errorOut)
 
       string buyValueFallback2 = JsonGetString(objects[i], "buyValue", "-");
       string buyValueFallback1 = JsonGetString(objects[i], "BuyValue", buyValueFallback2);
-      r.buyValue = JsonGetNumberAsString(objects[i], "lastBuyValue", buyValueFallback1);
+      string buyValueRaw = JsonGetNumberAsString(objects[i], "lastBuyValue", buyValueFallback1);
+      // lastBuyValue comes back from the API as a raw DECIMAL(24,6), e.g.
+      // "234789.120000" -- 13+ unformatted characters, which is what was
+      // blowing out the Buy Value column width and smearing into Last
+      // Sell. FormatCompactValue collapses that to "$235K" / "$1.2M" etc,
+      // matching how the score/value columns read everywhere else in
+      // trading-tool UI conventions.
+      r.buyValue = FormatCompactValue(buyValueRaw);
 
       if(StringLen(explicitLastBuy) > 0 && explicitLastBuy != "-")
          r.lastBuy = explicitLastBuy;
@@ -652,6 +681,39 @@ string ShortenDate(const string &iso)
 }
 
 //+------------------------------------------------------------------+
+//| Format a raw dollar-value string ("234789.120000") as compact    |
+//| currency ("$235K", "$1.2M", "$890") for the Buy Value column.    |
+//| The API returns lastBuyValue as a raw DECIMAL(24,6) -- 13+        |
+//| unformatted characters -- which is wider than the column was      |
+//| ever sized for and was overlapping into Last Sell. Returns "-"    |
+//| for anything that doesn't parse as a real positive number.        |
+//+------------------------------------------------------------------+
+string FormatCompactValue(const string &raw)
+{
+   if(raw == "-" || StringLen(raw) == 0)
+      return "-";
+
+   double v = StringToDouble(raw);
+   if(v <= 0)
+      return "-";
+
+   // Thresholds are set just below the exact unit boundary, not at it,
+   // so a value like 999,999,999.99 -- which rounds to "1000.0M" at one
+   // decimal place if checked against the 1,000,000,000 threshold
+   // directly -- correctly bumps up to "$1.0B" instead. Same reasoning
+   // one tier down for the K/M boundary.
+   if(v >= 999950000.0)
+      return "$" + DoubleToString(v / 1000000000.0, 1) + "B";
+   if(v >= 1000000.0)
+      return "$" + DoubleToString(v / 1000000.0, 1) + "M";
+   if(v >= 999500.0)
+      return "$" + DoubleToString(v / 1000000.0, 1) + "M";
+   if(v >= 1000.0)
+      return "$" + DoubleToString(v / 1000.0, 0) + "K";
+   return "$" + DoubleToString(v, 0);
+}
+
+//+------------------------------------------------------------------+
 //| Set the status line text/color (drawn at the bottom of panel)    |
 //+------------------------------------------------------------------+
 void SetStatus(string msg, color clr)
@@ -665,6 +727,10 @@ void SetStatus(string msg, color clr)
 //+------------------------------------------------------------------+
 void DrawStaticChrome()
 {
+   // Small initial panel -- DrawStatusOnly/DrawTable resize it correctly
+   // as soon as real content is known, this just avoids a single frame
+   // with the title floating with no backing at all on first load.
+   DrawPanelBackground(HEADER_Y + ROW_HEIGHT + 20);
    CreateLabel(EA_PREFIX + "Title", PANEL_X, 20, EA_TITLE, FONT_SIZE_TITLE, clrWhite, true);
 }
 
@@ -675,6 +741,8 @@ void DrawStatusOnly()
 {
    ObjectsDeleteAll(0, EA_PREFIX + "Row");
    ObjectsDeleteAll(0, EA_PREFIX + "Col");
+   int panelHeight = HEADER_Y + ROW_HEIGHT + 6 + ROW_HEIGHT + 10;
+   DrawPanelBackground(panelHeight);
    CreateLabel(EA_PREFIX + "Status", PANEL_X, HEADER_Y, g_statusMessage, FONT_SIZE_STATUS, g_statusColor, false);
    CreateLabel(EA_PREFIX + "Footer", PANEL_X, HEADER_Y + ROW_HEIGHT + 6, EA_FOOTER, FONT_SIZE_STATUS, clrGray, false);
    ChartRedraw(0);
@@ -688,10 +756,16 @@ void DrawTable(SignalRow &rows[])
    ObjectsDeleteAll(0, EA_PREFIX + "Row");
    ObjectsDeleteAll(0, EA_PREFIX + "Col");
 
+   int rowCount = ArraySize(rows);
+   int tableTop = HEADER_Y + ROW_HEIGHT + 4;
+   int footerY  = tableTop + ROW_HEIGHT * (rowCount + 1) + 8;
+   // Panel needs to reach past the footer text's own height, not just
+   // its baseline y-position -- ROW_HEIGHT here is a reasonable stand-in
+   // for one line of FONT_SIZE_STATUS text plus a little breathing room.
+   DrawPanelBackground(footerY + ROW_HEIGHT);
+
    // Status line just under the title
    CreateLabel(EA_PREFIX + "Status", PANEL_X, HEADER_Y, g_statusMessage, FONT_SIZE_STATUS, g_statusColor, false);
-
-   int tableTop = HEADER_Y + ROW_HEIGHT + 4;
 
    // Column headers
    for(int c = 0; c < COL_COUNT; c++)
@@ -701,7 +775,6 @@ void DrawTable(SignalRow &rows[])
                   ColHeader[c], FONT_SIZE_HEADER, clrDodgerBlue, true);
    }
 
-   int rowCount = ArraySize(rows);
    for(int r = 0; r < rowCount; r++)
    {
       int y = tableTop + ROW_HEIGHT * (r + 1);
@@ -717,7 +790,6 @@ void DrawTable(SignalRow &rows[])
       DrawCell(r, 7, y, rows[r].eventType, clrSilver);
    }
 
-   int footerY = tableTop + ROW_HEIGHT * (rowCount + 1) + 8;
    CreateLabel(EA_PREFIX + "Footer", PANEL_X, footerY, EA_FOOTER, FONT_SIZE_STATUS, clrGray, false);
 
    ChartRedraw(0);
@@ -764,4 +836,42 @@ void CreateLabel(string name, int x, int y, string text, int fontSize, color clr
    ObjectSetInteger(0, name, OBJPROP_FONTSIZE, fontSize);
    ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
 }
+
 //+------------------------------------------------------------------+
+//| Create or resize the solid backing panel behind the whole table, |
+//| so text is readable over candles instead of floating directly on |
+//| the chart with nothing behind it. height is the total panel      |
+//| height needed for the current content (varies with row count),  |
+//| so this is called fresh on every redraw, not just once in init.  |
+//| OBJPROP_BACK=true is required here specifically: CreateLabel's   |
+//| labels are created with OBJPROP_BACK=false (foreground), and a   |
+//| background-layer object always renders behind foreground ones    |
+//| regardless of creation order -- but creating/updating this first |
+//| each redraw keeps the draw sequence easy to follow regardless.   |
+//+------------------------------------------------------------------+
+void DrawPanelBackground(int height)
+{
+   string name = EA_PREFIX + "PanelBg";
+
+   if(ObjectFind(0, name) < 0)
+   {
+      ObjectCreate(0, name, OBJ_RECTANGLE_LABEL, 0, 0, 0);
+      ObjectSetInteger(0, name, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+      ObjectSetInteger(0, name, OBJPROP_BACK, true);
+      ObjectSetInteger(0, name, OBJPROP_SELECTABLE, false);
+      ObjectSetInteger(0, name, OBJPROP_HIDDEN, true);
+      ObjectSetInteger(0, name, OBJPROP_BORDER_TYPE, BORDER_FLAT);
+      ObjectSetInteger(0, name, OBJPROP_STYLE, STYLE_SOLID);
+      ObjectSetInteger(0, name, OBJPROP_WIDTH, 1);
+   }
+
+   // A few pixels of padding around the text content on every side.
+   ObjectSetInteger(0, name, OBJPROP_XDISTANCE, PANEL_X - 8);
+   ObjectSetInteger(0, name, OBJPROP_YDISTANCE, 6);
+   ObjectSetInteger(0, name, OBJPROP_XSIZE, PANEL_WIDTH);
+   ObjectSetInteger(0, name, OBJPROP_YSIZE, height);
+   ObjectSetInteger(0, name, OBJPROP_BGCOLOR, PANEL_BG_COLOR);
+   ObjectSetInteger(0, name, OBJPROP_COLOR, PANEL_BORDER_COLOR);
+}
+//+------------------------------------------------------------------+
+
