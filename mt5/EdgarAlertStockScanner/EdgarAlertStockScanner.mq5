@@ -322,33 +322,60 @@ bool ParseSignals(const string &json, SignalRow &rows[], string &errorOut)
                        JsonGetNumberAsString(objects[i], "score", "-")));
       r.signal    = JsonGetString(objects[i], "Signal", JsonGetString(objects[i], "signal",
                        ScoreToSignalLabel(r.score)));
-      r.cluster   = JsonGetString(objects[i], "Cluster", JsonGetString(objects[i], "cluster", "-"));
       r.eventType = JsonGetString(objects[i], "EventType", JsonGetString(objects[i], "eventType", "-"));
 
-      // The current /alerts/latest feed returns one row per event, each
-      // carrying a single trade "side" (BUY or SELL) rather than pre-
-      // aggregated Last Buy / Last Sell fields per ticker. We read side
-      // (top-level if present, else from message_json.side) and populate
-      // whichever of LastBuy/LastSell matches this event's date, leaving
-      // the other column blank. If/when the API starts returning explicit
-      // LastBuy/LastSell/BuyValue fields directly (see docs/architecture.md),
-      // those take priority automatically via the fallback chain below.
-      string side = JsonGetString(objects[i], "Side", JsonGetString(objects[i], "side",
-                       JsonGetString(objects[i], "MessageJson.side", "")));
+      // clusterCount: the live API field is "clusterCount" (int), not
+      // "Cluster"/"cluster" -- those keys never matched a real response
+      // field, so this column always fell back to "-". See
+      // AlertEventDto.ClusterCount in the V1 API repo. JsonGetNumberAsString
+      // is fine here, same as the score fields above.
+      r.cluster   = JsonGetNumberAsString(objects[i], "clusterCount",
+                       JsonGetString(objects[i], "Cluster", JsonGetString(objects[i], "cluster", "-")));
+
+      // side: NOT a top-level field on the live API. It only exists nested
+      // at details.side (added alongside the typed "details" object that
+      // replaced raw messageJson parsing -- see AlertDetailsDto.Side in the
+      // V1 API repo). The flat key search below still finds it correctly
+      // even though it's nested, because JsonGetString does an unscoped
+      // substring search for "side": -- it doesn't care which object the
+      // key lives in, as long as the text "side" appears unescaped (it
+      // won't accidentally match the copy of "side" trapped inside the
+      // escaped messageJson string, since that copy is serialized as
+      // \"side\" with literal backslashes, not "side"). The old top-level
+      // "Side"/"side" checks never matched anything real, and the
+      // "MessageJson.side" fallback after them was dead code (JSON keys
+      // don't have dots; that's not a path expression here, just a literal
+      // key name that never exists) -- replaced both with the one that
+      // actually works.
+      string side = JsonGetString(objects[i], "side", "");
       string eventDate = ShortenDate(JsonGetString(objects[i], "EventDate", JsonGetString(objects[i], "eventDate", "-")));
 
-      string explicitLastBuy  = JsonGetString(objects[i], "LastBuy",  JsonGetString(objects[i], "lastBuy",  ""));
-      string explicitLastSell = JsonGetString(objects[i], "LastSell", JsonGetString(objects[i], "lastSell", ""));
-      r.buyValue  = JsonGetString(objects[i], "BuyValue", JsonGetString(objects[i], "buyValue", "-"));
+      // lastBuyDate/lastBuyValue/lastSellDate: the live API fields are
+      // camelCase lastBuyDate / lastBuyValue / lastSellDate (see
+      // AlertEventDto in the V1 API repo, added specifically for
+      // trading-platform scanners like this one), not "LastBuy"/"lastBuy"/
+      // "LastSell"/"lastSell"/"BuyValue"/"buyValue" -- none of which were
+      // ever real field names, so these always fell back to per-row
+      // inference from side+eventDate below. Old keys kept as a deeper
+      // fallback in case an older API version ever sends the short names,
+      // but the real field names are tried first now.
+      string explicitLastBuy  = JsonGetString(objects[i], "lastBuyDate",
+                                    JsonGetString(objects[i], "LastBuy", JsonGetString(objects[i], "lastBuy", "")));
+      explicitLastBuy = ShortenDate(explicitLastBuy);
+      string explicitLastSell = JsonGetString(objects[i], "lastSellDate",
+                                    JsonGetString(objects[i], "LastSell", JsonGetString(objects[i], "lastSell", "")));
+      explicitLastSell = ShortenDate(explicitLastSell);
+      r.buyValue  = JsonGetNumberAsString(objects[i], "lastBuyValue",
+                       JsonGetString(objects[i], "BuyValue", JsonGetString(objects[i], "buyValue", "-")));
 
-      if(StringLen(explicitLastBuy) > 0)
+      if(StringLen(explicitLastBuy) > 0 && explicitLastBuy != "-")
          r.lastBuy = explicitLastBuy;
       else if(StringToUpperCopy(side) == "BUY")
          r.lastBuy = eventDate;
       else
          r.lastBuy = "-";
 
-      if(StringLen(explicitLastSell) > 0)
+      if(StringLen(explicitLastSell) > 0 && explicitLastSell != "-")
          r.lastSell = explicitLastSell;
       else if(StringToUpperCopy(side) == "SELL")
          r.lastSell = eventDate;
